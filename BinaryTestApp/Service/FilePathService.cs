@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 
 namespace BinaryTestApp.Service
@@ -64,72 +65,57 @@ namespace BinaryTestApp.Service
         }
 
         /// <summary>
-        /// 메시지 타입별 날짜 폴더 경로 생성
-        /// </summary>
-        /// <param name="messageTypeFolder">메시지 타입 폴더명</param>
-        /// <param name="date">날짜</param>
-        /// <returns>메시지 타입별 날짜 폴더 경로 (예: History/MsgModel/2024-01-15/)</returns>
-        public string GetMessageTypeDateDirectory(string messageTypeFolder, DateTime date)
-        {
-            var dateFolder = date.ToString("yyyy-MM-dd");
-            var messageTypeDirectory = GetMessageTypeDirectory(messageTypeFolder);
-            var dateDirectory = Path.Combine(messageTypeDirectory, dateFolder);
-            EnsureDirectoryExists(dateDirectory);
-            return dateDirectory;
-        }
-
-        /// <summary>
-        /// Unix 타임스탬프로부터 메시지 타입별 날짜 폴더 경로 생성
-        /// </summary>
-        /// <param name="messageTypeFolder">메시지 타입 폴더명</param>
-        /// <param name="unixTimestamp">Unix 타임스탬프 (초 단위)</param>
-        /// <returns>메시지 타입별 날짜 폴더 경로</returns>
-        public string GetMessageTypeDateDirectoryFromUnixTime(string messageTypeFolder, UInt32 unixTimestamp)
-        {
-            var date = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp).ToLocalTime().Date;
-            return GetMessageTypeDateDirectory(messageTypeFolder, date);
-        }
-
-        /// <summary>
-        /// 날짜별 폴더 경로 생성 (하위 호환성 유지, 사용 권장하지 않음)
-        /// </summary>
-        /// <param name="date">날짜</param>
-        /// <returns>날짜별 폴더 경로 (예: History/2024-01-15/)</returns>
-        [System.Obsolete("Use GetMessageTypeDateDirectory instead")]
-        public string GetDateDirectory(DateTime date)
-        {
-            var dateFolder = date.ToString("yyyy-MM-dd");
-            var dateDirectory = Path.Combine(HistoryDirectory, dateFolder);
-            EnsureDirectoryExists(dateDirectory);
-            return dateDirectory;
-        }
-
-        /// <summary>
-        /// Unix 타임스탬프로부터 날짜별 폴더 경로 생성 (하위 호환성 유지, 사용 권장하지 않음)
-        /// </summary>
-        /// <param name="unixTimestamp">Unix 타임스탬프 (초 단위)</param>
-        /// <returns>날짜별 폴더 경로</returns>
-        [System.Obsolete("Use GetMessageTypeDateDirectoryFromUnixTime instead")]
-        public string GetDateDirectoryFromUnixTime(UInt32 unixTimestamp)
-        {
-            var date = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp).ToLocalTime().Date;
-            return GetDateDirectory(date);
-        }
-
-        /// <summary>
         /// 파일명 생성
         /// </summary>
+        /// <param name="messageTypeFolder">메시지 타입 폴더명 (확장자 분기용)</param>
         /// <param name="unixTimestamp">Unix 타임스탬프</param>
         /// <param name="messageTypeName">메시지 타입 이름 (선택사항)</param>
-        /// <returns>파일명 (예: 1705276800_abc123.bin)</returns>
-        public string GenerateFileName(UInt32 unixTimestamp, string messageTypeName = null)
+        /// <returns>파일명 (예: 241124_153045.MsgModel)</returns>
+        public string GenerateFileName(string messageTypeFolder, UInt32 unixTimestamp, string messageTypeName = null)
         {
-            var fileName = $"{unixTimestamp}_{Guid.NewGuid():N}";
-            if (!string.IsNullOrWhiteSpace(messageTypeName))
+            var dateTime = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp).ToLocalTime().DateTime;
+            var fileName = dateTime.ToString("yyMMdd_HHmmss");
+            var extension = ResolveExtension(messageTypeFolder);
+            return $"{fileName}{extension}";
+        }
+
+        /// <summary>
+        /// 파일명에서 타임스탬프 추출
+        /// </summary>
+        public bool TryExtractTimestampFromFileName(string fileName, out DateTime timestamp)
+        {
+            timestamp = DateTime.MinValue;
+
+            if (string.IsNullOrWhiteSpace(fileName))
             {
-                fileName = $"{messageTypeName}_{fileName}";
+                return false;
             }
-            return $"{fileName}.bin";
+
+            var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            if (string.IsNullOrWhiteSpace(nameWithoutExtension))
+            {
+                return false;
+            }
+
+            var segments = nameWithoutExtension.Split('_', (char)StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length < 2)
+            {
+                return false;
+            }
+
+            var compact = $"{segments[0]}{segments[1]}";
+            if (DateTime.TryParseExact(
+                compact,
+                "yyMMddHHmmss",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var parsed))
+            {
+                timestamp = parsed;
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -137,26 +123,28 @@ namespace BinaryTestApp.Service
         /// </summary>
         /// <param name="messageTypeFolder">메시지 타입 폴더명 (MessageTypeConstants 사용)</param>
         /// <param name="unixTimestamp">Unix 타임스탬프</param>
-        /// <returns>전체 파일 경로 (예: History/MsgModel/2024-01-15/1705276800_abc123.bin)</returns>
+        /// <returns>전체 파일 경로 (예: History/MsgModel/1705276800_abc123.MsgModel)</returns>
         public string GetFullFilePath(string messageTypeFolder, UInt32 unixTimestamp)
         {
-            var dateDirectory = GetMessageTypeDateDirectoryFromUnixTime(messageTypeFolder, unixTimestamp);
-            var fileName = GenerateFileName(unixTimestamp);
-            return Path.Combine(dateDirectory, fileName);
+            var messageTypeDirectory = GetMessageTypeDirectory(messageTypeFolder);
+            var fileName = GenerateFileName(messageTypeFolder, unixTimestamp);
+            return Path.Combine(messageTypeDirectory, fileName);
         }
 
         /// <summary>
-        /// 전체 파일 경로 생성 (하위 호환성 유지, 사용 권장하지 않음)
+        /// 메시지 타입별 파일 확장자 조회
         /// </summary>
-        /// <param name="unixTimestamp">Unix 타임스탬프</param>
-        /// <param name="messageTypeName">메시지 타입 이름 (선택사항)</param>
-        /// <returns>전체 파일 경로</returns>
-        [System.Obsolete("Use GetFullFilePath(string messageTypeFolder, UInt32 unixTimestamp) instead")]
-        public string GetFullFilePath(UInt32 unixTimestamp, string messageTypeName = null)
+        public string GetFileExtension(string messageTypeFolder)
         {
-            var dateDirectory = GetDateDirectoryFromUnixTime(unixTimestamp);
-            var fileName = GenerateFileName(unixTimestamp, messageTypeName);
-            return Path.Combine(dateDirectory, fileName);
+            return ResolveExtension(messageTypeFolder);
+        }
+
+        /// <summary>
+        /// 메시지 타입별 파일 검색 패턴 (*.확장자)
+        /// </summary>
+        public string GetFileSearchPattern(string messageTypeFolder)
+        {
+            return $"*{ResolveExtension(messageTypeFolder)}";
         }
 
         /// <summary>
@@ -177,6 +165,22 @@ namespace BinaryTestApp.Service
         public void InitializeHistoryDirectory()
         {
             EnsureDirectoryExists(HistoryDirectory);
+        }
+
+        private string ResolveExtension(string messageTypeFolder)
+        {
+            if (string.IsNullOrWhiteSpace(messageTypeFolder))
+            {
+                return ".bin";
+            }
+
+            var candidate = messageTypeFolder.Trim();
+            if (!candidate.StartsWith("."))
+            {
+                candidate = "." + candidate;
+            }
+
+            return candidate;
         }
     }
 }

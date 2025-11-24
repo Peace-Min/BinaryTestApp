@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Windows;
 
 namespace BinaryTestApp.ViewModel
 {
@@ -150,7 +151,7 @@ namespace BinaryTestApp.ViewModel
             if (IsMessageInFilterRange(newMessage))
             {
                 var bindingModel = new MsgBindingModel(newMessage);
-                _filteredMessages.Add(bindingModel);
+                AddFilteredMessage(bindingModel);
             }
         }
 
@@ -175,6 +176,34 @@ namespace BinaryTestApp.ViewModel
                 .ToList();
 
             FilteredMessages = new ObservableCollection<MsgBindingModel>(filtered);
+        }
+
+        /// <summary>
+        /// UI 스레드에서만 필터링된 메시지 추가
+        /// </summary>
+        private void AddFilteredMessage(MsgBindingModel model)
+        {
+            if (model == null)
+            {
+                return;
+            }
+
+            void AddAction()
+            {
+                _filteredMessages = new ObservableCollection<MsgBindingModel>();
+                _filteredMessages.Add(model);
+            }
+
+            //var dispatcher = System.Windows.Application.Current?.Dispatcher;
+
+            //if (dispatcher == null || dispatcher.CheckAccess())
+            //{
+            //    AddAction();
+            //}
+            //else
+            //{
+            //    dispatcher.Invoke(AddAction);
+            //}
         }
 
         /// <summary>

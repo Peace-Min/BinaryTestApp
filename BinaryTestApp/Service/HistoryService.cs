@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security;
-using System.Text.RegularExpressions;
 
 namespace BinaryTestApp.Service
 {
@@ -262,87 +261,9 @@ namespace BinaryTestApp.Service
 
             try
             {
-                // 메시지 타입 폴더 내의 날짜 폴더들 조회
-                var dateFolders = Directory.GetDirectories(messageTypeDirectory)
-                    .Select(d => Path.GetFileName(d))
-                    .Where(f => Regex.IsMatch(f, @"^\d{4}-\d{2}-\d{2}$"))
-                    .OrderBy(f => f)
-                    .ToList();
-
-                foreach (var dateFolder in dateFolders)
-                {
-                    if (DateTime.TryParse(dateFolder, out DateTime date))
-                    {
-                        var dayMessages = LoadMessagesByDate<T>(date, messageTypeFolder);
-                        messages.AddRange(dayMessages);
-                    }
-                }
-            }
-            catch (ArgumentNullException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Null argument while loading all messages: {ex.Message}");
-            }
-            catch (ArgumentException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Invalid argument while loading all messages: {ex.Message}");
-            }
-            catch (DirectoryNotFoundException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Directory not found while loading all messages: {ex.Message}");
-            }
-            catch (FileNotFoundException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"File not found while loading all messages: {ex.Message}");
-            }
-            catch (PathTooLongException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Path too long while loading all messages: {ex.Message}");
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Unauthorized access while loading all messages: {ex.Message}");
-            }
-            catch (SecurityException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Security error while loading all messages: {ex.Message}");
-            }
-            catch (InvalidOperationException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Invalid operation while loading all messages: {ex.Message}");
-            }
-            catch (NotSupportedException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Operation not supported while loading all messages: {ex.Message}");
-            }
-            catch (IOException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"IO error while loading all messages: {ex.Message}");
-            }
-            catch (OutOfMemoryException ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Out of memory while loading all messages: {ex.Message}");
-            }
-
-            return messages.OrderBy(timestampExtractor).ToList();
-        }
-
-        /// <summary>
-        /// 특정 날짜의 메시지 로드
-        /// </summary>
-        private List<T> LoadMessagesByDate<T>(DateTime date, string messageTypeFolder) where T : struct, IMarshalSerialziable
-        {
-            var messages = new List<T>();
-            var dateDirectory = _filePathService.GetMessageTypeDateDirectory(messageTypeFolder, date);
-
-            if (!Directory.Exists(dateDirectory))
-            {
-                return messages;
-            }
-
-            try
-            {
-                var files = Directory.GetFiles(dateDirectory, "*.bin")
-                    .OrderBy(f => File.GetCreationTime(f))
+                var searchPattern = _filePathService.GetFileSearchPattern(messageTypeFolder);
+                var files = Directory.GetFiles(messageTypeDirectory, searchPattern, SearchOption.TopDirectoryOnly)
+                    .OrderBy(BuildFileSortKey)
                     .ToList();
 
                 foreach (var file in files)
@@ -398,50 +319,71 @@ namespace BinaryTestApp.Service
             }
             catch (ArgumentNullException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Null argument while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Null argument while loading all messages: {ex.Message}");
             }
             catch (ArgumentException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Invalid argument while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Invalid argument while loading all messages: {ex.Message}");
             }
             catch (DirectoryNotFoundException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Directory not found while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Directory not found while loading all messages: {ex.Message}");
             }
             catch (FileNotFoundException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"File not found while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"File not found while loading all messages: {ex.Message}");
             }
             catch (PathTooLongException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Path too long while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Path too long while loading all messages: {ex.Message}");
             }
             catch (UnauthorizedAccessException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Unauthorized access while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Unauthorized access while loading all messages: {ex.Message}");
             }
             catch (SecurityException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Security error while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Security error while loading all messages: {ex.Message}");
             }
             catch (InvalidOperationException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Invalid operation while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Invalid operation while loading all messages: {ex.Message}");
             }
             catch (NotSupportedException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Operation not supported while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Operation not supported while loading all messages: {ex.Message}");
             }
             catch (IOException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"IO error while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"IO error while loading all messages: {ex.Message}");
             }
             catch (OutOfMemoryException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Out of memory while loading messages for date {date}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Out of memory while loading all messages: {ex.Message}");
             }
 
-            return messages;
+            return messages.OrderBy(timestampExtractor).ToList();
+        }
+
+        private long BuildFileSortKey(string filePath)
+        {
+            if (_filePathService.TryExtractTimestampFromFileName(Path.GetFileName(filePath), out var timestamp))
+            {
+                return new DateTimeOffset(timestamp).ToUnixTimeSeconds();
+            }
+
+            try
+            {
+                return new DateTimeOffset(File.GetCreationTimeUtc(filePath)).ToUnixTimeSeconds();
+            }
+            catch (IOException)
+            {
+                return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            }
         }
 
         /// <summary>
@@ -449,28 +391,32 @@ namespace BinaryTestApp.Service
         /// </summary>
         public List<DateTime> GetAvailableDates(string messageTypeFolder)
         {
-            var dates = new List<DateTime>();
+            var dates = new HashSet<DateTime>();
             var messageTypeDirectory = _filePathService.GetMessageTypeDirectory(messageTypeFolder);
 
             if (!Directory.Exists(messageTypeDirectory))
             {
-                return dates;
+                return new List<DateTime>();
             }
 
             try
             {
-                var dateFolders = Directory.GetDirectories(messageTypeDirectory)
-                    .Select(d => Path.GetFileName(d))
-                    .Where(f => Regex.IsMatch(f, @"^\d{4}-\d{2}-\d{2}$"))
-                    .OrderByDescending(f => f)
-                    .ToList();
+                var searchPattern = _filePathService.GetFileSearchPattern(messageTypeFolder);
+                var files = Directory.GetFiles(messageTypeDirectory, searchPattern, SearchOption.TopDirectoryOnly);
 
-                foreach (var dateFolder in dateFolders)
+                foreach (var file in files)
                 {
-                    if (DateTime.TryParse(dateFolder, out DateTime date))
+                    DateTime targetDate;
+                    if (_filePathService.TryExtractTimestampFromFileName(Path.GetFileName(file), out var timestamp))
                     {
-                        dates.Add(date);
+                        targetDate = timestamp.Date;
                     }
+                    else
+                    {
+                        targetDate = File.GetCreationTime(file).Date;
+                    }
+
+                    dates.Add(targetDate);
                 }
             }
             catch (ArgumentNullException ex)
@@ -518,7 +464,9 @@ namespace BinaryTestApp.Service
                 System.Diagnostics.Debug.WriteLine($"Out of memory while getting available dates: {ex.Message}");
             }
 
-            return dates;
+            return dates
+                .OrderByDescending(d => d)
+                .ToList();
         }
     }
 }
