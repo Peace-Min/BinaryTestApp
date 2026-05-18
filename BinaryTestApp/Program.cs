@@ -16,10 +16,10 @@ namespace BinaryTestApp
             Console.WriteLine("BinaryTestApp initialized.");
             Console.WriteLine($"History directory: {AppDomain.CurrentDomain.BaseDirectory}History");
 
-            // DisplayViewModel 생성 (단일 인스턴스로 관리)
+            // DisplayViewModel 단일 인스턴스 사용 (Singleton)
             // - HistoryService에서 데이터 요청
             // - ObservableCollection으로 받아서 필터링 및 바인딩 모델 매핑
-            var msgDisplayViewModel = new MsgDisplayViewModel();
+            var msgDisplayViewModel = MsgDisplayViewModel.Instance;
             Console.WriteLine($"MsgModel filtered messages: {msgDisplayViewModel.FilteredMessages.Count}");
 
             Console.WriteLine("Press any key to exit...");

@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using System.Windows;
 
 namespace BinaryTestApp.ViewModel
 {
@@ -235,26 +234,13 @@ namespace BinaryTestApp.ViewModel
                 return;
             }
 
-            void AddAction()
+            // 기존 컬렉션에 추가 (초기화하지 않음)
+            // PoC는 Console exe이므로 Dispatcher 의존은 두지 않는다.
+            if (_filteredMessages == null)
             {
-                // 기존 컬렉션에 추가 (초기화하지 않음)
-                if (_filteredMessages == null)
-                {
-                    _filteredMessages = new ObservableCollection<MsgBindingModel>();
-                }
-                _filteredMessages.Add(model);
+                _filteredMessages = new ObservableCollection<MsgBindingModel>();
             }
-
-            var dispatcher = System.Windows.Application.Current?.Dispatcher;
-
-            if (dispatcher == null || dispatcher.CheckAccess())
-            {
-                AddAction();
-            }
-            else
-            {
-                dispatcher.Invoke(AddAction);
-            }
+            _filteredMessages.Add(model);
         }
 
         /// <summary>

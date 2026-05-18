@@ -167,6 +167,41 @@ namespace BinaryTestApp.Service
             EnsureDirectoryExists(HistoryDirectory);
         }
 
+        /// <summary>
+        /// 보존 기간이 지난 오래된 파일 정리
+        /// </summary>
+        /// <param name="messageTypeFolder">메시지 타입 폴더명</param>
+        /// <param name="retentionDays">보존 일수</param>
+        public void DeleteOldFiles(string messageTypeFolder, int retentionDays)
+        {
+            try
+            {
+                var dir = GetMessageTypeDirectory(messageTypeFolder);
+                if (!Directory.Exists(dir)) { return; }
+
+                var cutoff = DateTime.Now.AddDays(-retentionDays);
+                var pattern = GetFileSearchPattern(messageTypeFolder);
+                foreach (var file in Directory.GetFiles(dir, pattern))
+                {
+                    try
+                    {
+                        if (File.GetCreationTime(file) < cutoff)
+                        {
+                            File.Delete(file);
+                        }
+                    }
+                    catch
+                    {
+                        // 개별 파일 삭제 실패는 무시하고 계속
+                    }
+                }
+            }
+            catch
+            {
+                // 전체 실패해도 호출자에 영향 없도록 흡수
+            }
+        }
+
         private string ResolveExtension(string messageTypeFolder)
         {
             if (string.IsNullOrWhiteSpace(messageTypeFolder))
