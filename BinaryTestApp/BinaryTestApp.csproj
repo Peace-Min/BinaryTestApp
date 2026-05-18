@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Interface\IMarshalSerialziable.cs" />
+    <Compile Include="Model\MessageMetaEntry.cs" />
     <Compile Include="Model\MsgBindingModel.cs" />
     <Compile Include="Model\MsgModel.cs" />
     <Compile Include="Program.cs" />
@@ -52,6 +53,7 @@
     <Compile Include="Service\HistoryService.cs" />
     <Compile Include="Service\MarshalHelper.cs" />
     <Compile Include="Service\MessageTypeConstants.cs" />
+    <Compile Include="Service\MsgHistoryStore.cs" />
     <Compile Include="ViewModel\DisplayViewModel.cs" />
     <Compile Include="ViewModel\ReceiveViewModel.cs" />
   </ItemGroup>
