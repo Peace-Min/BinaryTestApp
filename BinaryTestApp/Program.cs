@@ -8,10 +8,10 @@ namespace BinaryTestApp
     {
         static void Main(string[] args)
         {
-            // HistoryService 초기화 (싱글톤이므로 자동 초기화됨)
-            // - SW 구동 시 모든 바이너리 파일 읽어와 ObservableCollection으로 관리
-            // - ReceiveViewModel 이벤트 구독하여 실시간 메시지 저장 및 추가
-            var historyService = HistoryService.Instance;
+            // 수신·저장 책임은 별도 서비스(Recorder)가 담당.
+            // - app 수명 동안 단일 인스턴스로 ReceiveViewModel을 구독
+            // - 수신된 메시지는 MsgHistoryStore.EnqueueSave로 위임
+            var recorder = MsgHistoryRecorder.Instance;
 
             Console.WriteLine("BinaryTestApp initialized.");
             Console.WriteLine($"History directory: {AppDomain.CurrentDomain.BaseDirectory}History");

@@ -53,6 +53,7 @@
     <Compile Include="Service\HistoryService.cs" />
     <Compile Include="Service\MarshalHelper.cs" />
     <Compile Include="Service\MessageTypeConstants.cs" />
+    <Compile Include="Service\MsgHistoryRecorder.cs" />
     <Compile Include="Service\MsgHistoryStore.cs" />
     <Compile Include="ViewModel\DisplayViewModel.cs" />
     <Compile Include="ViewModel\ReceiveViewModel.cs" />
