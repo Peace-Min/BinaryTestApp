@@ -56,6 +56,7 @@
     <Compile Include="Service\MsgHistoryRecorder.cs" />
     <Compile Include="Service\MsgHistoryStore.cs" />
     <Compile Include="ViewModel\DisplayViewModel.cs" />
+    <Compile Include="ViewModel\MsgHistoryBaseViewModel.cs" />
     <Compile Include="ViewModel\ReceiveViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
