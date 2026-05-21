@@ -50,7 +50,6 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Service\FilePathService.cs" />
-    <Compile Include="Service\HistoryService.cs" />
     <Compile Include="Service\MarshalHelper.cs" />
     <Compile Include="Service\MessageTypeConstants.cs" />
     <Compile Include="Service\MsgHistoryRecorder.cs" />
