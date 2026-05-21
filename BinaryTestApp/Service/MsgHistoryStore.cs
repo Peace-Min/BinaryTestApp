@@ -2,6 +2,7 @@ using BinaryTestApp.Interface;
 using BinaryTestApp.Model;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -21,13 +22,13 @@ namespace BinaryTestApp.Service
         private static readonly MsgHistoryStore _instance = new MsgHistoryStore();
         public static MsgHistoryStore Instance => _instance;
 
-        private readonly FilePathService _filePathService;
+        private readonly string _baseHistoryDirectory;
         private readonly object _saveLock = new object();
 
         private MsgHistoryStore()
         {
-            _filePathService = FilePathService.Instance;
-            _filePathService.InitializeHistoryDirectory();
+            _baseHistoryDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "History");
+            EnsureDirectoryExists(_baseHistoryDirectory);
         }
 
         /// <summary>
@@ -47,7 +48,7 @@ namespace BinaryTestApp.Service
             try
             {
                 var timestamp = timestampExtractor(model);
-                var filePath = _filePathService.GetFullFilePath(messageTypeFolder, timestamp);
+                var filePath = GetFullFilePath(messageTypeFolder, timestamp);
 
                 lock (_saveLock)
                 {
@@ -71,13 +72,13 @@ namespace BinaryTestApp.Service
         public IReadOnlyList<MessageMetaEntry> GetEntries(string messageTypeFolder)
         {
             var result = new List<MessageMetaEntry>();
-            var directory = _filePathService.GetMessageTypeDirectory(messageTypeFolder);
+            var directory = GetMessageTypeDirectory(messageTypeFolder);
             if (!Directory.Exists(directory)) { return result; }
 
             string[] files;
             try
             {
-                files = Directory.GetFiles(directory, _filePathService.GetFileSearchPattern(messageTypeFolder));
+                files = Directory.GetFiles(directory, GetFileSearchPattern(messageTypeFolder));
             }
             catch (Exception ex)
             {
@@ -88,7 +89,7 @@ namespace BinaryTestApp.Service
             foreach (var file in files)
             {
                 var fileName = Path.GetFileName(file);
-                if (!_filePathService.TryExtractTimestampFromFileName(fileName, out var dt))
+                if (!TryExtractTimestampFromFileName(fileName, out var dt))
                 {
                     continue;
                 }
@@ -117,7 +118,7 @@ namespace BinaryTestApp.Service
                 return false;
             }
 
-            var directory = _filePathService.GetMessageTypeDirectory(messageTypeFolder);
+            var directory = GetMessageTypeDirectory(messageTypeFolder);
             var fullPath = Path.Combine(directory, fileKey);
             if (!File.Exists(fullPath)) { return false; }
 
@@ -132,6 +133,66 @@ namespace BinaryTestApp.Service
             {
                 System.Diagnostics.Debug.WriteLine($"[MsgHistoryStore] LoadMessage failed: {ex.Message}");
                 return false;
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // 파일 경로/파일명 helpers — 과거 FilePathService 기능을 Store 내부로 흡수.
+        // ViewModel/Recorder는 이 helper에 접근하지 않는다.
+        // -----------------------------------------------------------------
+
+        private string GetMessageTypeDirectory(string messageTypeFolder)
+        {
+            var dir = Path.Combine(_baseHistoryDirectory, messageTypeFolder);
+            EnsureDirectoryExists(dir);
+            return dir;
+        }
+
+        private string GetFullFilePath(string messageTypeFolder, UInt32 unixTimestamp)
+        {
+            var dir = GetMessageTypeDirectory(messageTypeFolder);
+            var dateTime = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp).ToLocalTime().DateTime;
+            var fileName = dateTime.ToString("yyMMdd_HHmmss") + ResolveExtension(messageTypeFolder);
+            return Path.Combine(dir, fileName);
+        }
+
+        private static string GetFileSearchPattern(string messageTypeFolder)
+        {
+            return "*" + ResolveExtension(messageTypeFolder);
+        }
+
+        private static string ResolveExtension(string messageTypeFolder)
+        {
+            if (string.IsNullOrWhiteSpace(messageTypeFolder)) { return ".bin"; }
+            var candidate = messageTypeFolder.Trim();
+            return candidate.StartsWith(".") ? candidate : "." + candidate;
+        }
+
+        private static bool TryExtractTimestampFromFileName(string fileName, out DateTime timestamp)
+        {
+            timestamp = DateTime.MinValue;
+            if (string.IsNullOrWhiteSpace(fileName)) { return false; }
+
+            var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            if (string.IsNullOrWhiteSpace(nameWithoutExtension)) { return false; }
+
+            var segments = nameWithoutExtension.Split(new[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length < 2) { return false; }
+
+            var compact = segments[0] + segments[1];
+            return DateTime.TryParseExact(
+                compact,
+                "yyMMddHHmmss",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out timestamp);
+        }
+
+        private static void EnsureDirectoryExists(string directoryPath)
+        {
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
             }
         }
     }
